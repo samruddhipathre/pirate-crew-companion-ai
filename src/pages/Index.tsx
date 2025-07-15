@@ -1,7 +1,7 @@
-import { AICompanion } from '@/components/AICompanion';
+import { VoiceCompanion } from '@/components/VoiceCompanion';
 
 const Index = () => {
-  return <AICompanion />;
+  return <VoiceCompanion />;
 };
 
 export default Index;
