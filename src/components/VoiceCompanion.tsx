@@ -2,12 +2,14 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { Character } from '@/types/character';
 import { characters, getCharacterById } from '@/data/characters';
 import { VoiceCharacterAvatar } from './VoiceCharacterAvatar';
+import { CharacterSwitcher } from './CharacterSwitcher';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
+import { elevenLabsService } from '@/services/elevenlabsService';
 import { 
   voiceRecognition, 
   textToSpeech, 
@@ -195,36 +197,19 @@ export function VoiceCompanion() {
     }
   }, [activeCharacter, isVoiceEnabled, addVoiceLog, generateResponse]);
 
-  // Speak response
+  // Speak response with Japanese accent
   const speakResponse = useCallback(async (text: string, character: Character) => {
     setIsSpeaking(true);
     
     try {
-      // Character-specific voice settings
-      const characterVoiceSettings = {
-        luffy: { pitch: 1.2, rate: 1.1 },
-        zoro: { pitch: 0.8, rate: 0.9 },
-        sanji: { pitch: 1.0, rate: 1.0 },
-        nami: { pitch: 1.3, rate: 1.1 },
-        usopp: { pitch: 1.1, rate: 1.2 },
-        chopper: { pitch: 1.5, rate: 1.0 },
-        law: { pitch: 0.9, rate: 0.95 }
-      };
-
-      const charSettings = characterVoiceSettings[character.id as keyof typeof characterVoiceSettings];
-      
-      await ttsRef.current.speak(text, {
-        voiceId: selectedVoice,
-        pitch: charSettings.pitch * voiceSettings.pitch,
-        rate: charSettings.rate * voiceSettings.rate,
-        volume: voiceSettings.volume
-      });
+      // Try ElevenLabs first for better Japanese accent
+      await elevenLabsService.speak(text, character);
     } catch (error) {
       console.error('Speech synthesis error:', error);
     } finally {
       setIsSpeaking(false);
     }
-  }, [selectedVoice, voiceSettings]);
+  }, []);
 
   // Setup voice recognition
   useEffect(() => {
@@ -278,7 +263,13 @@ export function VoiceCompanion() {
 
   return (
     <div className="min-h-screen bg-gradient-ocean">
-      {/* Floating Character Avatars */}
+      {/* Character Switcher */}
+      <CharacterSwitcher
+        activeCharacter={activeCharacter}
+        onCharacterChange={setActiveCharacter}
+      />
+
+      {/* Active Character Avatar */}
       <VoiceCharacterAvatar
         character={currentCharacter}
         isActive={true}
@@ -293,23 +284,6 @@ export function VoiceCompanion() {
           [activeCharacter]: pos
         }))}
       />
-
-      {/* Other characters (smaller, inactive) */}
-      {characters.filter(char => char.id !== activeCharacter).map((character) => (
-        <VoiceCharacterAvatar
-          key={character.id}
-          character={character}
-          isActive={false}
-          isSpeaking={false}
-          isListening={false}
-          position={characterPositions[character.id]}
-          size="small"
-          onPositionChange={(pos) => setCharacterPositions(prev => ({
-            ...prev,
-            [character.id]: pos
-          }))}
-        />
-      ))}
 
       {/* Control Panel */}
       <div className="fixed bottom-4 right-4 w-80 max-h-96 z-40">
@@ -350,22 +324,15 @@ export function VoiceCompanion() {
               </Button>
             </div>
 
-            {/* Character Quick Switch */}
+            {/* ElevenLabs API Key */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Quick Switch</label>
-              <div className="grid grid-cols-3 gap-2">
-                {characters.slice(0, 6).map((char) => (
-                  <Button
-                    key={char.id}
-                    variant={activeCharacter === char.id ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setActiveCharacter(char.id)}
-                    className="text-xs"
-                  >
-                    {char.name.split(' ')[0]}
-                  </Button>
-                ))}
-              </div>
+              <label className="text-sm font-medium">ElevenLabs API Key</label>
+              <input
+                type="password"
+                placeholder="Enter API key for better Japanese voices"
+                className="w-full px-3 py-2 text-sm border rounded-md"
+                onChange={(e) => elevenLabsService.setApiKey(e.target.value)}
+              />
             </div>
 
             {/* Voice Settings */}
